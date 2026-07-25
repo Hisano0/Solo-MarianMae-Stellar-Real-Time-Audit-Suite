@@ -1,132 +1,39 @@
-# StellarX Workshop Starter
+Project Name
+Stellar Real-Time Audit Suite
 
-A ready-to-run scaffold for a **StellarX workshop**. It gives you a
-working Stellar app on **testnet** so you can spend the workshop bending it toward
-your own idea instead of fighting setup.
+One-Line Description
+A real-time Stellar audit dashboard powered by a dual-engine architecture that seamlessly toggles between an offline Simulation Mode for instant testing and a Live Horizon SSE Stream for on-chain telemetry.
 
-It covers **both** workshop tracks:
+Track
+Track 6 Open Innovation
 
-- **Fullstack payments** — a Next.js app: connect Freighter → fund via Friendbot →
-  view XLM/USDC balances → send a payment → confirm on-chain.
-- **Soroban smart contract** — a small Rust contract (a *Savings Goal* tracker)
-  you build, test, deploy with the Stellar CLI, and call from the same frontend.
+Problem It Solves
+Compliance teams and developers building on Stellar often lack tools that gracefully bridge offline application testing with real-time ledger auditing. Standard explorers force teams to connect active accounts or endure hydration bugs and 404 console errors during local development. Stellar Sentinel solves this by providing a unified audit dashboard equipped with an instant Simulation Mode for offline UI testing, alongside a live push-based Horizon engine that streams real-time payment events the moment a wallet connects.
 
-```
-.
-├── web/                      # Next.js 16 + TypeScript + Tailwind frontend
-├── contracts/savings-goal/   # Rust Soroban contract (init / contribute / get_state)
-├── scripts/                  # deploy.ps1 (Windows) / deploy.sh
-├── Cargo.toml                # Rust workspace
-└── CLAUDE.md                 # stack notes + Stellar gotchas (read this!)
-```
+How It Uses Stellar
+Horizon Server-Sent Events (SSE): Utilizes @stellar/stellar-sdk push streaming (payments().forAccount().cursor("now").stream()) to capture live ledger transactions in real time with zero polling overhead.
 
-## Prerequisites
+Horizon REST API: Queries past ledger operations (fetchAuditHistory) to reconstruct account audit volume and payment timelines upon connection.
 
-- **Node.js 20+** and **npm** — for the frontend.
-- **Freighter** browser extension — create a wallet, switch it to **Test Net**.
-- For the contract track: **Rust**, the `wasm32v1-none` target, and the **Stellar CLI**.
+Freighter Wallet Integration: Implements modern wallet detection (requestAccess / getAddress) to authenticate keys and trigger the transition from simulated to live network data.
 
-You can run the **payments demo with just Node + Freighter** — Rust/CLI are only
-needed to deploy the Soroban contract.
+Stellar Payment Primitives & Simulation Engine: Mirrors standard on-chain payment structures (hashes, senders, recipients, XLM amounts) in both Simulation and Live modes for complete testing parity.
 
-### Install the contract toolchain (Windows)
+GitHub Repository
+https://github.com/Hisano0/Solo-MarianMae-Stellar-Real-Time-Audit-Suite
 
-Install Rust and the Stellar CLI:
+Network & Deployment
+Network: Stellar Testnet
 
-```powershell
-winget install --id Rustlang.Rustup -e --accept-source-agreements --accept-package-agreements
-winget install --id Stellar.StellarCLI -e --accept-source-agreements --accept-package-agreements
-```
+Live app URL (if any): Runs locally — see README (or paste your Vercel deployment URL)
 
-Then **open a new terminal** (so `cargo`/`stellar` land on PATH) and give Rust a
-working linker — pick one:
+Contract IDs / asset issuers (if any): N/A
 
-**Easiest — GNU toolchain** (no admin, no large download):
+Team
+Marian Mae J. Modesto — @Hisano0
 
-```powershell
-rustup default stable-x86_64-pc-windows-gnu
-rustup target add wasm32v1-none
-```
+Novelty Note
+Unlike traditional block explorers that strictly require an active network connection, Stellar Sentinel features a Dual-Engine Architecture. It initializes instantly in Simulation Mode (eliminating hydration errors, suppressing testnet console noise, and allowing offline workflow testing) and seamlessly elevates to a Live Horizon SSE Stream when a wallet is connected. This gives developers and compliance officers a sandbox and a live production audit environment inside a single, unified interface.
 
-**Or MSVC** (matches Stellar's docs): install the **Visual C++ Build Tools** (the
-"Desktop development with C++" workload), then:
-
-```powershell
-rustup target add wasm32v1-none
-```
-
-> If `cargo` fails with *"linker `link.exe` not found"*, you skipped the step
-> above — use the GNU toolchain or install the Build Tools.
-
-On macOS/Linux: install Rust from <https://rustup.rs>, run
-`rustup target add wasm32v1-none`, and install the Stellar CLI
-(`brew install stellar-cli`).
-
-## 1. Run the frontend (the part that demos immediately)
-
-```powershell
-cd web
-npm install        # already run if you scaffolded via this repo
-npm run dev
-```
-
-Open <http://localhost:3000>, then:
-
-1. **Connect Freighter** (approve in the extension; make sure it's on Test Net).
-2. **Fund with Friendbot** — your XLM balance jumps to ~10,000.
-3. **Send a payment** to another *existing, funded* testnet account
-   (create one at <https://laboratory.stellar.org/#account-creator?network=test>).
-4. Watch the status go Building → Signing → Submitting → Confirming → Success,
-   then open the **Stellar Expert** link to see it on-chain.
-
-`web/.env.local` is pre-filled with testnet config. `NEXT_PUBLIC_CONTRACT_ID` is
-left empty — the Savings Goal panel shows deploy instructions until you set it.
-
-## 2. Build, test & deploy the Soroban contract
-
-```powershell
-# from the repo root
-cargo test                 # runs the contract unit tests (no network needed)
-
-# deploy to testnet + auto-wire the contract ID into web/.env.local
-.\scripts\deploy.ps1       # macOS/Linux:  ./scripts/deploy.sh
-```
-
-The deploy script will: create+fund a testnet identity (if needed), run
-`stellar contract build`, deploy, initialise the goal (target `1000`), and write
-`NEXT_PUBLIC_CONTRACT_ID` into `web/.env.local`. **Restart `npm run dev`** and the
-**Savings Goal** panel goes live: it reads on-chain progress and lets a connected
-wallet `contribute` (a real signed Soroban transaction).
-
-### The contract (`contracts/savings-goal/src/lib.rs`)
-
-| Function | Purpose |
-|---|---|
-| `init(target: i128)` | Set the savings target (once). |
-| `contribute(amount: i128) -> i128` | Add to the saved total; returns the new total. |
-| `get_state() -> State` | Read `{ saved, target }`. |
-
-It uses plain integer state (no token transfers) so it's bulletproof in a live
-demo. To make it move real money, swap `contribute` to call the XLM/USDC SAC
-`transfer` and store per-user contributions — see CLAUDE.md for the SAC addresses.
-
-## 3. Make it your idea
-
-This is your *starting point*, not the answer. Pick an idea + track from the
-workshop's 300-ideas list (Philippines remittance / payments / financial
-inclusion themes score well), then reshape the components and the contract.
-Good extension paths: transaction history from Horizon, USDC trustline + send,
-a swap via Soroswap, a price feed via Reflector.
-
-For a fully worked example built on this scaffold, see the **Paluwagan** app in
-`..\Stellar-Workshop-PUP-May-2026-EXAMPLE`.
-
-## Troubleshooting
-
-- **Freighter "not detected"** — install it, reload the page, and confirm it's unlocked.
-- **Payment fails `op_no_destination`** — fund the destination account first.
-- **`tx_bad_auth`** — wrong network passphrase; this app uses `Networks.TESTNET`.
-- **Contract panel can't read state** — make sure you deployed *and* ran `init`,
-  and that `NEXT_PUBLIC_CONTRACT_ID` is set, then restart the dev server.
-
-See **CLAUDE.md** for the full list of Stellar gotchas.
+Anything Else
+Future Roadmap: Soroban smart contract event auditing, custom threshold rules for flagged compliance alerts, multi-signature monitoring, and automated CSV/PDF report exports.
