@@ -1,36 +1,26 @@
-'use client';
-import { useState } from 'react';
-import type { WalletState } from '@/hooks/useWallet';
+"use client";
 
-export default function ConnectWallet({
-  publicKey,
-  connecting,
-  error,
-  connect,
-  disconnect,
-}: WalletState) {
-  const [copied, setCopied] = useState(false);
+import React from "react";
+import { useWallet } from "@/hooks/useWallet";
 
-  const copy = async () => {
-    if (!publicKey) return;
-    await navigator.clipboard.writeText(publicKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+export default function ConnectWallet() {
+  const { accountId, isConnected, connect, disconnect, loading } = useWallet();
+
+  const formatAddress = (addr: string) => {
+    if (!addr || addr.length < 10) return addr;
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
-  if (publicKey) {
+  if (isConnected && accountId) {
     return (
-      <div className="flex items-center gap-2">
-        <button
-          onClick={copy}
-          title="Copy full address"
-          className="rounded bg-gray-100 px-3 py-1 font-mono text-sm text-gray-700 transition-colors hover:bg-gray-200"
-        >
-          {copied ? 'Copied!' : `${publicKey.slice(0, 6)}…${publicKey.slice(-6)}`}
-        </button>
+      <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-4 py-2 rounded-lg">
+        <span className="flex items-center gap-2 text-xs text-emerald-400 font-medium">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          {formatAddress(accountId)}
+        </span>
         <button
           onClick={disconnect}
-          className="text-sm text-red-500 hover:underline"
+          className="text-xs bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 px-2.5 py-1 rounded transition"
         >
           Disconnect
         </button>
@@ -39,15 +29,12 @@ export default function ConnectWallet({
   }
 
   return (
-    <div className="text-right">
-      <button
-        onClick={connect}
-        disabled={connecting}
-        className="rounded bg-indigo-600 px-4 py-2 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-      >
-        {connecting ? 'Connecting…' : 'Connect Freighter'}
-      </button>
-      {error && <p className="mt-2 max-w-xs text-sm text-red-500">{error}</p>}
-    </div>
+    <button
+      onClick={connect}
+      disabled={loading}
+      className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm px-5 py-2.5 rounded-lg transition shadow-lg shadow-purple-500/20 disabled:opacity-50"
+    >
+      {loading ? "Connecting Wallet..." : "Connect Wallet"}
+    </button>
   );
 }
