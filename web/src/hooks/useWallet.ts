@@ -1,64 +1,101 @@
-'use client';
-import { useState, useCallback } from 'react';
+"use client";
 
-const TIMEOUT_MS = 3000;
+import { useState, useEffect } from "react";
 
-// Freighter API calls can hang if the extension is missing — race them with a timeout.
-function withTimeout<T>(p: Promise<T>, fallback: T, ms = TIMEOUT_MS): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
-  ]);
-}
+export function useWallet() {
+  const [accountId, setAccountId] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
 
-export interface WalletState {
-  publicKey: string | null;
-  connecting: boolean;
-  error: string | null;
-  connect: () => void;
-  disconnect: () => void;
-}
-
-export function useWallet(): WalletState {
-  const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [connecting, setConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const connect = useCallback(async () => {
-    setConnecting(true);
-    setError(null);
-    try {
-      // Dynamic import only — a static import breaks SSR (browser globals).
-      const freighter = await import('@stellar/freighter-api');
-
-      const connected = await withTimeout(freighter.isConnected(), {
-        isConnected: false,
-      });
-      if (!connected.isConnected) {
-        throw new Error(
-          'Freighter not detected. Install it from freighter.app and reload.',
-        );
-      }
-
-      // requestAccess() prompts the user and returns their address (Freighter v6).
-      const access = await freighter.requestAccess();
-      if (access.error) throw new Error(access.error);
-      if (!access.address) {
-        throw new Error('No address returned — did you approve the request?');
-      }
-
-      setPublicKey(access.address);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to connect wallet');
-    } finally {
-      setConnecting(false);
+  // Sync wallet state from localStorage across components
+  const syncWallet = () => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("stellar_account_id") || "";
+      setAccountId(saved);
     }
+  };
+
+  useEffect(() => {
+    syncWallet();
+    window.addEventListener("stellar_wallet_change", syncWallet);
+    window.addEventListener("storage", syncWallet);
+    return () => {
+      window.removeEventListener("stellar_wallet_change", syncWallet);
+      window.removeEventListener("storage", syncWallet);
+    };
   }, []);
 
-  const disconnect = useCallback(() => {
-    setPublicKey(null);
-    setError(null);
-  }, []);
+  const connect = async () => {
+    setLoading(true);
+    let pubKey = "";
 
-  return { publicKey, connecting, error, connect, disconnect };
+    try {
+      // 1. Try connecting via @stellar/freighter-api dynamically
+      try {
+        const freighter = (await import("@stellar/freighter-api")) as any;
+
+        if (typeof freighter.requestAccess === "function") {
+          const res = await freighter.requestAccess();
+          pubKey = typeof res === "string" ? res : res?.address || "";
+        } else if (typeof freighter.getAddress === "function") {
+          const res = await freighter.getAddress();
+          pubKey = typeof res === "string" ? res : res?.address || "";
+        } else if (typeof freighter.getPublicKey === "function") {
+          pubKey = await freighter.getPublicKey();
+        }
+      } catch {
+        // Fall back to window.freighter if package dynamic import isn't used
+      }
+
+      // 2. Try window.freighter directly
+      if (!pubKey && typeof window !== "undefined" && (window as any).freighter) {
+        try {
+          const freighterObj = (window as any).freighter;
+          if (typeof freighterObj.requestAccess === "function") {
+            const res = await freighterObj.requestAccess();
+            pubKey = typeof res === "string" ? res : res?.address || "";
+          } else if (typeof freighterObj.getPublicKey === "function") {
+            pubKey = await freighterObj.getPublicKey();
+          }
+        } catch (e) {
+          console.warn("Freighter connection rejected or failed:", e);
+        }
+      }
+
+      // 3. Fallback prompt if no browser extension is present
+      if (!pubKey) {
+        const input = prompt(
+          "No Stellar wallet extension (like Freighter) detected.\nEnter a Stellar Testnet Public Key (starts with G):",
+          "GBRPYHIL2CI3FNM4BXLFMNDLIGTUA2J2R3DRQUUTG4ORBSKX2L7C5THB"
+        );
+        if (input) pubKey = input.trim();
+      }
+
+      // Save connected account and notify app components
+      if (pubKey) {
+        localStorage.setItem("stellar_account_id", pubKey);
+        setAccountId(pubKey);
+        window.dispatchEvent(new Event("stellar_wallet_change"));
+      }
+    } catch (error) {
+      console.error("Wallet connection error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const disconnect = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("stellar_account_id");
+      setAccountId("");
+      window.dispatchEvent(new Event("stellar_wallet_change"));
+    }
+  };
+
+  return {
+    accountId,
+    isConnected: Boolean(accountId),
+    loading,
+    connect,
+    disconnect,
+  };
 }
