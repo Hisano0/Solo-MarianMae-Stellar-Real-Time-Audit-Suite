@@ -1,75 +1,73 @@
-'use client';
-import { useState, useCallback } from 'react';
-import { useWallet } from '@/hooks/useWallet';
-import ConnectWallet from '@/components/ConnectWallet';
-import FundAccount from '@/components/FundAccount';
-import AddTrustline from '@/components/AddTrustline';
-import BalanceCard from '@/components/BalanceCard';
-import SendPayment from '@/components/SendPayment';
-import SavingsGoal from '@/components/SavingsGoal';
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { useWallet } from "@/hooks/useWallet";
+import ConnectWallet from "@/components/ConnectWallet";
+import SendPayment from "@/components/SendPayment";
+import AuditLog from "@/components/AuditLog";
+
+// Fallback demo account key so Simulation Mode works even if wallet state is initializing
+const DEMO_ACCOUNT = "GBRPYHIL2CI3FNM4BXLFMNDLIGTUA2J2R3DRQUUTG4ORBSKX2L7C5THB";
 
 export default function Home() {
-  const wallet = useWallet();
-  const { publicKey, connecting } = wallet;
-  const [refreshKey, setRefreshKey] = useState(0);
-  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+  const { accountId, isConnected } = useWallet();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Use the connected wallet key if available, otherwise fall back to demo key
+  const activeAccount = accountId || DEMO_ACCOUNT;
+
+  if (!isMounted) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-slate-100 py-12 px-4 space-y-10">
+        <header className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-800 pb-6">
+          <div>
+            <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+              Stellar Real-Time Audit Suite
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">Continuous, instant financial monitoring on testnet.</p>
+          </div>
+          <ConnectWallet />
+        </header>
+      </main>
+    );
+  }
 
   return (
-    <main className="min-h-screen w-full bg-gray-50">
-      <div className="mx-auto max-w-lg px-4 py-12">
-        <header className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">StellarX Starter</h1>
-            <p className="text-sm text-gray-500">
-              Wallet · payments · Soroban — testnet
-            </p>
-          </div>
-          <ConnectWallet {...wallet} />
-        </header>
+    <main className="min-h-screen bg-slate-950 text-slate-100 py-12 px-4 space-y-10">
+      <header className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-800 pb-6">
+        <div>
+          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+            Stellar Real-Time Audit Suite
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">Continuous, instant financial monitoring on testnet.</p>
+        </div>
+        <ConnectWallet />
+      </header>
 
-        {!publicKey && !connecting && (
-          <div className="rounded border border-gray-200 bg-white py-16 text-center text-gray-500">
-            <p className="mb-2">Connect your Freighter wallet to get started.</p>
-            <p className="text-sm">
-              No wallet?{' '}
-              <a
-                href="https://freighter.app"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-600 hover:underline"
-              >
-                Install Freighter
-              </a>{' '}
-              and switch it to Test Net.
-            </p>
-          </div>
-        )}
-
-        {publicKey && (
-          <>
-            <div className="mb-2 flex flex-wrap items-center gap-3">
-              <FundAccount publicKey={publicKey} onFunded={refresh} />
-              <AddTrustline publicKey={publicKey} onDone={refresh} />
+      <section className="max-w-5xl mx-auto space-y-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <SendPayment publicKey={activeAccount} onSent={() => console.log("Payment sent!")} />
+          <div className="p-6 bg-slate-900 border border-slate-800 rounded-xl flex flex-col justify-between">
+            <div>
+              <h3 className="text-lg font-bold mb-2">Auditor Read-Only Access</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Every transaction submitted through this portal executes on-chain and streams instantly to the live log below via Stellar Horizon SSE streams. Fraud or unapproved disbursements are identified instantly rather than post-quarter.
+              </p>
             </div>
-            <BalanceCard publicKey={publicKey} refreshKey={refreshKey} />
-            <button
-              onClick={refresh}
-              className="mt-3 text-sm text-gray-500 underline hover:text-gray-700"
-            >
-              Refresh balances
-            </button>
-            <SendPayment publicKey={publicKey} onSent={refresh} />
-          </>
-        )}
+            {!isConnected && (
+              <p className="text-xs text-amber-400 font-medium mt-4">
+                ⚡ Running in Simulation Mode. Connect your wallet above for live testnet streaming.
+              </p>
+            )}
+          </div>
+        </div>
 
-        {/* The Soroban panel renders even before connecting (reads are wallet-free). */}
-        <SavingsGoal publicKey={publicKey} />
-
-        <footer className="mt-10 text-center text-xs text-gray-400">
-          Built for the StellarX workshop · pick an idea, then bend
-          this scaffold toward it.
-        </footer>
-      </div>
+        <AuditLog companyAccountId={activeAccount} />
+      </section>
     </main>
   );
 }
